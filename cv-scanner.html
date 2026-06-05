@@ -1,0 +1,1555 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>CV Scanner — ATS Intelligence</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<style>
+  /* ══════════════════════════════════════════
+     CSS VARIABLES & RESET
+  ══════════════════════════════════════════ */
+  :root {
+    --bg: #0a0c10;
+    --surface: #111318;
+    --surface2: #181c24;
+    --surface3: #1e2330;
+    --border: rgba(255,255,255,0.07);
+    --border2: rgba(255,255,255,0.12);
+    --accent: #00e5a0;
+    --accent2: #0066ff;
+    --accent3: #ff4f6d;
+    --accent4: #ffb547;
+    --text: #f0f2f7;
+    --text2: #8b90a0;
+    --text3: #565c72;
+    --radius: 16px;
+    --radius-sm: 10px;
+    --shadow: 0 8px 40px rgba(0,0,0,0.5);
+    --shadow-accent: 0 0 40px rgba(0,229,160,0.12);
+    --font-display: 'Syne', sans-serif;
+    --font-body: 'DM Sans', sans-serif;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: var(--font-body);
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+    line-height: 1.6;
+  }
+
+  /* ── Background grid texture ── */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,229,160,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,229,160,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ── Glow orbs ── */
+  .orb {
+    position: fixed;
+    border-radius: 50%;
+    filter: blur(100px);
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.25;
+  }
+  .orb-1 { width: 500px; height: 500px; background: var(--accent2); top: -100px; right: -100px; }
+  .orb-2 { width: 400px; height: 400px; background: var(--accent); bottom: -100px; left: -100px; }
+
+  /* ══════════════════════════════════════════
+     LAYOUT
+  ══════════════════════════════════════════ */
+  .app { position: relative; z-index: 1; max-width: 1100px; margin: 0 auto; padding: 0 24px 80px; }
+
+  /* ── Header ── */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 32px 0 48px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 48px;
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .logo-icon {
+    width: 40px; height: 40px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+  }
+
+  .logo-text {
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-size: 1.3rem;
+    letter-spacing: -0.5px;
+  }
+
+  .logo-text span { color: var(--accent); }
+
+  .badge {
+    background: rgba(0,229,160,0.1);
+    border: 1px solid rgba(0,229,160,0.3);
+    color: var(--accent);
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    padding: 4px 10px;
+    border-radius: 20px;
+  }
+
+  /* ── Hero ── */
+  .hero {
+    text-align: center;
+    margin-bottom: 48px;
+  }
+
+  .hero h1 {
+    font-family: var(--font-display);
+    font-size: clamp(2rem, 5vw, 3.2rem);
+    font-weight: 800;
+    letter-spacing: -1.5px;
+    line-height: 1.1;
+    margin-bottom: 16px;
+  }
+
+  .hero h1 .highlight {
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .hero p {
+    color: var(--text2);
+    font-size: 1.05rem;
+    max-width: 520px;
+    margin: 0 auto;
+    font-weight: 300;
+  }
+
+  /* ══════════════════════════════════════════
+     UPLOAD ZONE
+  ══════════════════════════════════════════ */
+  .upload-section { margin-bottom: 40px; }
+
+  #dropZone {
+    border: 2px dashed var(--border2);
+    border-radius: var(--radius);
+    padding: 64px 32px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    background: var(--surface);
+    position: relative;
+    overflow: hidden;
+  }
+
+  #dropZone::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at center, rgba(0,229,160,0.05) 0%, transparent 70%);
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+
+  #dropZone:hover::before,
+  #dropZone.drag-over::before { opacity: 1; }
+
+  #dropZone:hover,
+  #dropZone.drag-over {
+    border-color: var(--accent);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-accent);
+  }
+
+  #dropZone.drag-over { border-style: solid; }
+
+  .upload-icon {
+    font-size: 3rem;
+    margin-bottom: 16px;
+    display: block;
+  }
+
+  .upload-title {
+    font-family: var(--font-display);
+    font-size: 1.2rem;
+    font-weight: 700;
+    margin-bottom: 8px;
+  }
+
+  .upload-sub {
+    color: var(--text2);
+    font-size: 0.9rem;
+    margin-bottom: 24px;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 24px;
+    border-radius: var(--radius-sm);
+    font-family: var(--font-body);
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: none;
+    text-decoration: none;
+  }
+
+  .btn-primary {
+    background: linear-gradient(135deg, var(--accent), #00b87a);
+    color: #000;
+    font-weight: 700;
+  }
+
+  .btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0,229,160,0.4);
+  }
+
+  .btn-ghost {
+    background: var(--surface2);
+    color: var(--text2);
+    border: 1px solid var(--border);
+  }
+
+  .btn-ghost:hover {
+    border-color: var(--border2);
+    color: var(--text);
+  }
+
+  .upload-formats {
+    margin-top: 16px;
+    color: var(--text3);
+    font-size: 0.8rem;
+  }
+
+  #fileInput { display: none; }
+
+  /* ── API Key input ── */
+  .api-key-section {
+    margin-top: 20px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px 24px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+
+  .api-key-label {
+    font-size: 0.85rem;
+    color: var(--text2);
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .api-key-label::before { content: '🔑'; }
+
+  .api-key-input {
+    flex: 1;
+    min-width: 260px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 10px 14px;
+    color: var(--text);
+    font-family: var(--font-body);
+    font-size: 0.9rem;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .api-key-input:focus { border-color: var(--accent); }
+  .api-key-input::placeholder { color: var(--text3); }
+
+  .api-key-hint {
+    font-size: 0.75rem;
+    color: var(--text3);
+    width: 100%;
+    margin-top: -8px;
+  }
+
+  .api-key-hint a { color: var(--accent2); text-decoration: none; }
+  .api-key-hint a:hover { text-decoration: underline; }
+
+  /* ══════════════════════════════════════════
+     LOADING STATE
+  ══════════════════════════════════════════ */
+  #loadingSection { display: none; }
+
+  .loading-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 48px 32px;
+    text-align: center;
+  }
+
+  .spinner {
+    width: 56px; height: 56px;
+    border: 3px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin: 0 auto 24px;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .loading-title {
+    font-family: var(--font-display);
+    font-size: 1.2rem;
+    font-weight: 700;
+    margin-bottom: 8px;
+  }
+
+  .loading-steps {
+    list-style: none;
+    margin-top: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    text-align: left;
+    max-width: 320px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .loading-step {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.85rem;
+    color: var(--text3);
+    transition: color 0.3s;
+  }
+
+  .loading-step.active { color: var(--accent); }
+  .loading-step.done { color: var(--text2); }
+
+  .step-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--surface3);
+    border: 2px solid var(--text3);
+    flex-shrink: 0;
+    transition: all 0.3s;
+  }
+
+  .loading-step.active .step-dot { background: var(--accent); border-color: var(--accent); box-shadow: 0 0 8px var(--accent); }
+  .loading-step.done .step-dot { background: var(--text2); border-color: var(--text2); }
+
+  /* ══════════════════════════════════════════
+     RESULTS SECTION
+  ══════════════════════════════════════════ */
+  #resultsSection { display: none; animation: fadeIn 0.6s ease; }
+
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
+  /* ── Score hero ── */
+  .score-hero {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 40px;
+    margin-bottom: 24px;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: 40px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .score-hero::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+  }
+
+  .score-ring {
+    position: relative;
+    width: 120px; height: 120px;
+    flex-shrink: 0;
+  }
+
+  .score-ring svg { transform: rotate(-90deg); }
+
+  .score-ring-bg { fill: none; stroke: var(--surface3); stroke-width: 8; }
+  .score-ring-fill { fill: none; stroke-width: 8; stroke-linecap: round; transition: stroke-dashoffset 1.5s cubic-bezier(0.2,0.8,0.2,1); }
+
+  .score-number {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-display);
+    font-size: 2rem;
+    font-weight: 800;
+    line-height: 1;
+  }
+
+  .score-number small {
+    font-size: 0.7rem;
+    color: var(--text2);
+    font-weight: 400;
+    font-family: var(--font-body);
+  }
+
+  .score-info h2 {
+    font-family: var(--font-display);
+    font-size: 1.5rem;
+    font-weight: 800;
+    margin-bottom: 8px;
+    letter-spacing: -0.5px;
+  }
+
+  .score-info p {
+    color: var(--text2);
+    font-size: 0.9rem;
+    max-width: 400px;
+    line-height: 1.7;
+  }
+
+  .readiness-badge {
+    padding: 12px 20px;
+    border-radius: var(--radius-sm);
+    font-family: var(--font-display);
+    font-size: 0.95rem;
+    font-weight: 700;
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  /* ── Stats grid ── */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    transition: border-color 0.2s;
+  }
+
+  .stat-card:hover { border-color: var(--border2); }
+
+  .stat-icon { font-size: 1.4rem; }
+  .stat-value {
+    font-family: var(--font-display);
+    font-size: 1.6rem;
+    font-weight: 800;
+    line-height: 1;
+  }
+  .stat-label { font-size: 0.78rem; color: var(--text2); }
+
+  /* ── Section scores ── */
+  .section-scores {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 28px;
+    margin-bottom: 24px;
+  }
+
+  .card-title {
+    font-family: var(--font-display);
+    font-size: 1rem;
+    font-weight: 700;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .section-bar-list { display: flex; flex-direction: column; gap: 14px; }
+
+  .section-bar-item { display: flex; flex-direction: column; gap: 6px; }
+
+  .section-bar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.85rem;
+  }
+
+  .section-bar-name { color: var(--text2); }
+  .section-bar-score { font-weight: 600; }
+
+  .bar-track {
+    height: 6px;
+    background: var(--surface3);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+
+  .bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 1s cubic-bezier(0.2,0.8,0.2,1);
+    width: 0;
+  }
+
+  /* ── Two-column layout ── */
+  .two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    margin-bottom: 24px;
+  }
+
+  /* ── Findings cards ── */
+  .findings-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 28px;
+  }
+
+  .finding-list { display: flex; flex-direction: column; gap: 12px; }
+
+  .finding-item {
+    display: flex;
+    gap: 12px;
+    padding: 14px;
+    border-radius: var(--radius-sm);
+    font-size: 0.85rem;
+    line-height: 1.5;
+    border: 1px solid transparent;
+  }
+
+  .finding-item.strength {
+    background: rgba(0,229,160,0.05);
+    border-color: rgba(0,229,160,0.15);
+  }
+
+  .finding-item.warning {
+    background: rgba(255,181,71,0.05);
+    border-color: rgba(255,181,71,0.15);
+  }
+
+  .finding-item.critical {
+    background: rgba(255,79,109,0.05);
+    border-color: rgba(255,79,109,0.15);
+  }
+
+  .finding-icon { font-size: 1rem; flex-shrink: 0; margin-top: 1px; }
+
+  .finding-content { flex: 1; }
+  .finding-title { font-weight: 600; margin-bottom: 2px; color: var(--text); }
+  .finding-desc { color: var(--text2); font-size: 0.82rem; }
+
+  /* ── Recommendations ── */
+  .recommendations {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 28px;
+    margin-bottom: 24px;
+  }
+
+  .rec-list { display: flex; flex-direction: column; gap: 10px; }
+
+  .rec-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 14px 16px;
+    background: var(--surface2);
+    border-radius: var(--radius-sm);
+    font-size: 0.85rem;
+    border: 1px solid var(--border);
+    transition: border-color 0.2s;
+  }
+
+  .rec-item:hover { border-color: var(--border2); }
+
+  .rec-number {
+    width: 22px; height: 22px;
+    background: linear-gradient(135deg, var(--accent2), var(--accent));
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: #fff;
+    flex-shrink: 0;
+  }
+
+  /* ── Keywords ── */
+  .keywords-section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 28px;
+    margin-bottom: 24px;
+  }
+
+  .keyword-groups { display: flex; flex-direction: column; gap: 16px; }
+
+  .keyword-group-title {
+    font-size: 0.78rem;
+    color: var(--text3);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 8px;
+    font-weight: 600;
+  }
+
+  .keyword-tags { display: flex; flex-wrap: wrap; gap: 8px; }
+
+  .kw-tag {
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-size: 0.78rem;
+    font-weight: 500;
+  }
+
+  .kw-found { background: rgba(0,229,160,0.1); border: 1px solid rgba(0,229,160,0.25); color: var(--accent); }
+  .kw-missing { background: rgba(255,79,109,0.08); border: 1px solid rgba(255,79,109,0.2); color: var(--accent3); }
+  .kw-suggested { background: rgba(0,102,255,0.08); border: 1px solid rgba(0,102,255,0.2); color: #6699ff; }
+
+  /* ── Raw text preview ── */
+  .raw-preview {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 28px;
+    margin-bottom: 24px;
+  }
+
+  .raw-text {
+    background: var(--surface2);
+    border-radius: var(--radius-sm);
+    padding: 20px;
+    font-size: 0.8rem;
+    color: var(--text2);
+    max-height: 220px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    line-height: 1.7;
+    border: 1px solid var(--border);
+    font-family: 'Courier New', monospace;
+  }
+
+  .raw-text::-webkit-scrollbar { width: 6px; }
+  .raw-text::-webkit-scrollbar-track { background: var(--surface3); border-radius: 3px; }
+  .raw-text::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+  /* ── Action bar ── */
+  .action-bar {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-top: 8px;
+  }
+
+  /* ══════════════════════════════════════════
+     UTILITY
+  ══════════════════════════════════════════ */
+  .color-excellent { color: var(--accent); }
+  .color-good { color: #60d0ff; }
+  .color-average { color: var(--accent4); }
+  .color-poor { color: var(--accent3); }
+
+  .bg-excellent { background: rgba(0,229,160,0.12); color: var(--accent); border: 1px solid rgba(0,229,160,0.3); }
+  .bg-good { background: rgba(96,208,255,0.12); color: #60d0ff; border: 1px solid rgba(96,208,255,0.3); }
+  .bg-average { background: rgba(255,181,71,0.12); color: var(--accent4); border: 1px solid rgba(255,181,71,0.3); }
+  .bg-poor { background: rgba(255,79,109,0.12); color: var(--accent3); border: 1px solid rgba(255,79,109,0.3); }
+
+  .stroke-excellent { stroke: var(--accent); }
+  .stroke-good { stroke: #60d0ff; }
+  .stroke-average { stroke: var(--accent4); }
+  .stroke-poor { stroke: var(--accent3); }
+
+  .fill-excellent { fill: var(--accent); }
+  .fill-good { fill: #60d0ff; }
+  .fill-average { fill: var(--accent4); }
+  .fill-poor { fill: var(--accent3); }
+
+  .bar-excellent { background: linear-gradient(90deg, var(--accent), #00b87a); }
+  .bar-good { background: linear-gradient(90deg, #60d0ff, #0099cc); }
+  .bar-average { background: linear-gradient(90deg, var(--accent4), #e08030); }
+  .bar-poor { background: linear-gradient(90deg, var(--accent3), #cc2040); }
+
+  /* ── Error state ── */
+  .error-box {
+    background: rgba(255,79,109,0.08);
+    border: 1px solid rgba(255,79,109,0.25);
+    border-radius: var(--radius-sm);
+    padding: 16px 20px;
+    color: var(--accent3);
+    font-size: 0.88rem;
+    margin-top: 16px;
+    display: none;
+  }
+
+  /* ── Responsive ── */
+  @media (max-width: 768px) {
+    .score-hero { grid-template-columns: 1fr; text-align: center; }
+    .score-hero .readiness-badge { justify-self: center; }
+    .stats-grid { grid-template-columns: repeat(2, 1fr); }
+    .two-col { grid-template-columns: 1fr; }
+    header { flex-direction: column; gap: 16px; }
+  }
+
+  @media (max-width: 480px) {
+    .stats-grid { grid-template-columns: 1fr 1fr; }
+    .score-hero { padding: 24px; }
+  }
+
+  /* ── Divider ── */
+  .divider {
+    height: 1px;
+    background: var(--border);
+    margin: 32px 0;
+  }
+
+  .text-muted { color: var(--text2); font-size: 0.85rem; }
+
+  /* sample btn */
+  .sample-hint {
+    margin-top: 12px;
+    font-size: 0.8rem;
+    color: var(--text3);
+  }
+  .sample-hint button {
+    background: none; border: none; color: var(--accent2);
+    cursor: pointer; font-size: 0.8rem; text-decoration: underline;
+    font-family: var(--font-body);
+  }
+</style>
+</head>
+<body>
+
+<div class="orb orb-1"></div>
+<div class="orb orb-2"></div>
+
+<div class="app">
+
+  <!-- ── Header ── -->
+  <header>
+    <div class="logo">
+      <div class="logo-icon">📄</div>
+      <div class="logo-text">CV<span>Scan</span></div>
+    </div>
+    <div class="badge">ATS Intelligence</div>
+  </header>
+
+  <!-- ── Hero ── -->
+  <div class="hero">
+    <h1>Scan Your CV with<br><span class="highlight">AI-Powered Analysis</span></h1>
+    <p>Upload your CV for a comprehensive ATS evaluation. Get a score, identify gaps, and receive actionable recommendations powered by Claude AI.</p>
+  </div>
+
+  <!-- ══ UPLOAD SECTION ══ -->
+  <div class="upload-section">
+    <div id="dropZone">
+      <span class="upload-icon">⬆️</span>
+      <div class="upload-title">Drop your CV here</div>
+      <div class="upload-sub">or click to browse files</div>
+      <button class="btn btn-primary" onclick="document.getElementById('fileInput').click()">
+        📂 Choose File
+      </button>
+      <div class="upload-formats">Supports PDF and DOCX • Max 10MB</div>
+      <div class="sample-hint">
+        Don't have a CV? <button onclick="loadSampleCV()">Use sample CV →</button>
+      </div>
+    </div>
+    <input type="file" id="fileInput" accept=".pdf,.docx"/>
+    <div id="errorBox" class="error-box"></div>
+
+    <!-- API Key -->
+    <div class="api-key-section">
+      <span class="api-key-label">Anthropic API Key</span>
+      <input type="password" id="apiKeyInput" class="api-key-input"
+             placeholder="sk-ant-api03-..." autocomplete="off"/>
+      <div class="api-key-hint">
+        Your key is never stored. Get one free at
+        <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ LOADING SECTION ══ -->
+  <div id="loadingSection">
+    <div class="loading-card">
+      <div class="spinner"></div>
+      <div class="loading-title">Analyzing your CV…</div>
+      <p class="text-muted">Claude AI is reviewing your document</p>
+      <ul class="loading-steps">
+        <li class="loading-step" id="step1"><span class="step-dot"></span>Extracting document text</li>
+        <li class="loading-step" id="step2"><span class="step-dot"></span>Parsing CV sections</li>
+        <li class="loading-step" id="step3"><span class="step-dot"></span>Running ATS analysis</li>
+        <li class="loading-step" id="step4"><span class="step-dot"></span>Generating recommendations</li>
+        <li class="loading-step" id="step5"><span class="step-dot"></span>Calculating final score</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ══ RESULTS SECTION ══ -->
+  <div id="resultsSection">
+
+    <!-- Score Hero -->
+    <div class="score-hero">
+      <div class="score-ring">
+        <svg viewBox="0 0 120 120" width="120" height="120">
+          <circle class="score-ring-bg" cx="60" cy="60" r="52"/>
+          <circle class="score-ring-fill" id="scoreRingFill" cx="60" cy="60" r="52"
+                  stroke-dasharray="327" stroke-dashoffset="327"/>
+        </svg>
+        <div class="score-number">
+          <span id="scoreDisplay">0</span>
+          <small>/ 100</small>
+        </div>
+      </div>
+      <div class="score-info">
+        <h2 id="scoreTitle">ATS Score</h2>
+        <p id="scoreDesc">Your CV analysis is ready. Review the detailed breakdown below.</p>
+      </div>
+      <div class="readiness-badge" id="readinessBadge">—</div>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <span class="stat-icon">✅</span>
+        <span class="stat-value color-excellent" id="statStrengths">0</span>
+        <span class="stat-label">Strengths Found</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-icon">⚠️</span>
+        <span class="stat-value color-average" id="statWarnings">0</span>
+        <span class="stat-label">Areas to Improve</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-icon">❌</span>
+        <span class="stat-value color-poor" id="statCritical">0</span>
+        <span class="stat-label">Critical Issues</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-icon">📋</span>
+        <span class="stat-value" id="statSections">0</span>
+        <span class="stat-label">Sections Detected</span>
+      </div>
+    </div>
+
+    <!-- Section Scores -->
+    <div class="section-scores">
+      <div class="card-title">📊 Section-by-Section Breakdown</div>
+      <div class="section-bar-list" id="sectionBars"></div>
+    </div>
+
+    <!-- Findings (Strengths + Issues) -->
+    <div class="two-col">
+      <div class="findings-card">
+        <div class="card-title">✅ Strengths</div>
+        <div class="finding-list" id="strengthsList"></div>
+      </div>
+      <div class="findings-card">
+        <div class="card-title">⚠️ Areas for Improvement</div>
+        <div class="finding-list" id="warningsList"></div>
+      </div>
+    </div>
+
+    <!-- Critical Issues -->
+    <div class="findings-card" style="margin-bottom:24px">
+      <div class="card-title">❌ Critical Issues</div>
+      <div class="finding-list" id="criticalList"></div>
+    </div>
+
+    <!-- Recommendations -->
+    <div class="recommendations">
+      <div class="card-title">💡 Actionable Recommendations</div>
+      <div class="rec-list" id="recList"></div>
+    </div>
+
+    <!-- Keywords -->
+    <div class="keywords-section">
+      <div class="card-title">🏷️ Keyword Analysis</div>
+      <div class="keyword-groups" id="keywordGroups"></div>
+    </div>
+
+    <!-- Raw CV preview -->
+    <div class="raw-preview">
+      <div class="card-title">📄 Extracted CV Text</div>
+      <div class="raw-text" id="rawText"></div>
+    </div>
+
+    <!-- Actions -->
+    <div class="action-bar">
+      <button class="btn btn-primary" onclick="downloadReport()">⬇️ Download Report</button>
+      <button class="btn btn-ghost" onclick="resetApp()">🔄 Scan Another CV</button>
+    </div>
+
+  </div><!-- /resultsSection -->
+
+</div><!-- /app -->
+
+<!-- ══════════════════════════════════════════
+     JAVASCRIPT
+══════════════════════════════════════════ -->
+<script>
+// Set pdf.js worker
+pdfjsLib.GlobalWorkerOptions.workerSrc =
+  'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+/* ─────────────────────────────────────────
+   GLOBAL STATE
+───────────────────────────────────────── */
+let analysisResult = null;
+let cvText = '';
+
+/* ─────────────────────────────────────────
+   DRAG & DROP
+───────────────────────────────────────── */
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (file) handleFile(file);
+});
+dropZone.addEventListener('click', e => {
+  if (e.target.tagName !== 'BUTTON') fileInput.click();
+});
+fileInput.addEventListener('change', () => {
+  if (fileInput.files[0]) handleFile(fileInput.files[0]);
+});
+
+/* ─────────────────────────────────────────
+   FILE HANDLING
+───────────────────────────────────────── */
+async function handleFile(file) {
+  showError('');
+
+  const validTypes = ['application/pdf',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/msword'];
+  const validExts = ['.pdf', '.docx', '.doc'];
+  const ext = '.' + file.name.split('.').pop().toLowerCase();
+
+  if (!validTypes.includes(file.type) && !validExts.includes(ext)) {
+    return showError('❌ Unsupported file type. Please upload a PDF or DOCX file.');
+  }
+  if (file.size > 10 * 1024 * 1024) {
+    return showError('❌ File too large. Maximum size is 10MB.');
+  }
+
+  showLoading();
+  await stepActive(1);
+
+  try {
+    if (file.type === 'application/pdf' || ext === '.pdf') {
+      cvText = await extractPDF(file);
+    } else {
+      cvText = await extractDOCX(file);
+    }
+
+    if (!cvText || cvText.trim().length < 50) {
+      throw new Error('Could not extract readable text from this file. Make sure it is not a scanned image-only PDF.');
+    }
+
+    await stepDone(1);
+    await stepActive(2);
+    await sleep(400);
+    await stepDone(2);
+    await stepActive(3);
+
+    const apiKey = document.getElementById('apiKeyInput').value.trim();
+    await analyzeWithClaude(cvText, apiKey);
+
+  } catch (err) {
+    hideLoading();
+    showError('❌ ' + err.message);
+  }
+}
+
+/* ─────────────────────────────────────────
+   PDF EXTRACTION
+───────────────────────────────────────── */
+async function extractPDF(file) {
+  const arrayBuffer = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+  let text = '';
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i);
+    const content = await page.getTextContent();
+    text += content.items.map(item => item.str).join(' ') + '\n';
+  }
+  return text;
+}
+
+/* ─────────────────────────────────────────
+   DOCX EXTRACTION
+───────────────────────────────────────── */
+async function extractDOCX(file) {
+  const arrayBuffer = await file.arrayBuffer();
+  const result = await mammoth.extractRawText({ arrayBuffer });
+  return result.value;
+}
+
+/* ─────────────────────────────────────────
+   SAMPLE CV (for testing without upload)
+───────────────────────────────────────── */
+function loadSampleCV() {
+  cvText = `
+JANE SMITH
+Senior Data Scientist | jane.smith@email.com | +1-555-0123 | linkedin.com/in/janesmith | github.com/janesmith | New York, NY
+
+PROFESSIONAL SUMMARY
+Results-driven Data Scientist with 6+ years of experience building machine learning models and data pipelines. Proven track record delivering ML solutions that increased revenue by 35% and reduced operational costs by 22%. Expert in Python, TensorFlow, and cloud platforms (AWS, GCP).
+
+SKILLS
+Programming: Python, R, SQL, Scala, JavaScript
+ML/AI: TensorFlow, PyTorch, Scikit-learn, XGBoost, LightGBM, NLP, Computer Vision
+Cloud: AWS (SageMaker, S3, Lambda, EC2), GCP (BigQuery, Vertex AI), Azure ML
+Tools: Docker, Kubernetes, Apache Spark, Airflow, MLflow, dbt, Tableau, Git
+
+EXPERIENCE
+
+Senior Data Scientist — Acme Corp, New York, NY (Jan 2021 – Present)
+• Led development of real-time fraud detection model using gradient boosting; reduced fraud losses by $2.1M annually (32% reduction)
+• Built NLP pipeline to classify 50K+ customer support tickets daily, improving routing accuracy from 67% to 91%
+• Mentored team of 4 junior data scientists; established code review practices and MLOps standards
+• Collaborated with product and engineering to ship 3 ML features in production
+
+Data Scientist — DataViz Inc, Boston, MA (Jun 2018 – Dec 2020)
+• Developed customer churn prediction model with 89% precision; directly contributed to 18% reduction in churn
+• Designed and maintained automated ETL pipelines processing 500GB+ daily using Apache Spark and Airflow
+• Created interactive Tableau dashboards used weekly by executive team
+
+EDUCATION
+M.S. Data Science — Columbia University, New York, NY (2018) | GPA: 3.8/4.0
+B.S. Statistics — University of Michigan, Ann Arbor, MI (2016) | Magna Cum Laude
+
+CERTIFICATIONS
+• AWS Certified Machine Learning – Specialty (2022)
+• Google Professional Data Engineer (2021)
+• Deep Learning Specialization — Coursera/DeepLearning.AI (2020)
+
+PROJECTS
+• Open-source ML toolkit (GitHub: 1.2K stars) for time-series anomaly detection
+• Kaggle competition: Top 3% finish in tabular classification challenge (2022)
+
+PUBLICATIONS
+• "Scalable Fraud Detection at Runtime" — KDD Workshop 2022
+`;
+  showLoading();
+  stepActive(1);
+  setTimeout(async () => {
+    await stepDone(1);
+    await stepActive(2);
+    await sleep(300);
+    await stepDone(2);
+    await stepActive(3);
+    const apiKey = document.getElementById('apiKeyInput').value.trim();
+    analyzeWithClaude(cvText, apiKey);
+  }, 600);
+}
+
+/* ─────────────────────────────────────────
+   CLAUDE AI ANALYSIS
+───────────────────────────────────────── */
+async function analyzeWithClaude(text, apiKey) {
+
+  const prompt = `You are an expert ATS (Applicant Tracking System) consultant and career coach. Analyze the following CV/resume thoroughly and return a comprehensive JSON evaluation.
+
+CV TEXT:
+"""
+${text.substring(0, 6000)}
+"""
+
+Return ONLY valid JSON (no markdown, no explanation) in this exact structure:
+{
+  "score": <integer 0-100>,
+  "readiness": "<Excellent|Good|Average|Poor>",
+  "scoreTitle": "<short title for the score, e.g. 'Strong ATS Profile'>",
+  "scoreDesc": "<2-sentence summary of overall CV quality>",
+  "sections": {
+    "Contact Information": <0-100>,
+    "Professional Summary": <0-100>,
+    "Skills": <0-100>,
+    "Work Experience": <0-100>,
+    "Education": <0-100>,
+    "Certifications": <0-100>,
+    "Projects": <0-100>
+  },
+  "strengths": [
+    { "title": "<strength title>", "desc": "<brief explanation>" }
+  ],
+  "warnings": [
+    { "title": "<warning title>", "desc": "<brief explanation>" }
+  ],
+  "critical": [
+    { "title": "<critical issue title>", "desc": "<brief explanation>" }
+  ],
+  "recommendations": [
+    "<actionable recommendation string>"
+  ],
+  "keywords": {
+    "found": ["<keyword>"],
+    "missing": ["<important missing keyword>"],
+    "suggested": ["<suggested keyword to add>"]
+  }
+}
+
+Rules:
+- strengths: 3-6 items
+- warnings: 2-5 items  
+- critical: 0-4 items (only real critical issues; empty array if none)
+- recommendations: 5-8 specific actionable items
+- keywords.found: keywords/skills actually present
+- keywords.missing: important ATS keywords missing
+- keywords.suggested: additional keywords that would help
+- Score 80-100 = Excellent, 60-79 = Good, 40-59 = Average, 0-39 = Poor
+- Be precise, specific, and actionable`;
+
+  try {
+    let result;
+
+    if (apiKey && apiKey.startsWith('sk-ant')) {
+      // Real Claude API call
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true'
+        },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 2000,
+          messages: [{ role: 'user', content: prompt }]
+        })
+      });
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error?.message || `API error ${response.status}. Check your API key.`);
+      }
+
+      const data = await response.json();
+      const raw = data.content[0].text.trim();
+      result = JSON.parse(raw.replace(/^```json\n?/, '').replace(/\n?```$/, ''));
+
+    } else {
+      // Fallback: heuristic local analysis (no API key)
+      result = localAnalysis(text);
+    }
+
+    await stepDone(3);
+    await stepActive(4);
+    await sleep(300);
+    await stepDone(4);
+    await stepActive(5);
+    await sleep(400);
+    await stepDone(5);
+
+    analysisResult = result;
+    await sleep(300);
+    hideLoading();
+    renderResults(result, text);
+
+  } catch (err) {
+    hideLoading();
+    showError('❌ Analysis failed: ' + err.message +
+      (apiKey ? '' : ' (No API key provided — using local analysis as fallback)'));
+    // Try local fallback
+    if (!apiKey || !apiKey.startsWith('sk-ant')) {
+      const result = localAnalysis(text);
+      analysisResult = result;
+      renderResults(result, text);
+    }
+  }
+}
+
+/* ─────────────────────────────────────────
+   LOCAL HEURISTIC ANALYSIS (fallback)
+   Used when no API key is provided
+───────────────────────────────────────── */
+function localAnalysis(text) {
+  const t = text.toLowerCase();
+
+  // Section detection
+  const hasContact = /email|phone|linkedin|github|address|\@/.test(t);
+  const hasSummary = /summary|objective|profile|about/.test(t);
+  const hasSkills = /skills|technologies|stack|proficiency/.test(t);
+  const hasExperience = /experience|employment|work history|position/.test(t);
+  const hasEducation = /education|university|degree|bachelor|master|phd/.test(t);
+  const hasCerts = /certif|license|credential/.test(t);
+  const hasProjects = /project|portfolio|github|open.source/.test(t);
+
+  // Bullets & quantification
+  const bulletCount = (text.match(/[•\-\*]|^\d+\./gm) || []).length;
+  const hasNumbers = /\d+%|\$\d+|\d+\+|\d+k|\d+ years/.test(t);
+
+  // Word count rough
+  const wordCount = text.split(/\s+/).length;
+
+  // Score calculation
+  let score = 0;
+  if (hasContact) score += 15;
+  if (hasSummary) score += 12;
+  if (hasSkills) score += 15;
+  if (hasExperience) score += 25;
+  if (hasEducation) score += 13;
+  if (hasCerts) score += 8;
+  if (hasProjects) score += 7;
+  if (hasNumbers) score += 5;
+  if (bulletCount > 5) score = Math.min(score + 5, 100);
+  if (wordCount < 200) score = Math.max(score - 15, 0);
+
+  const sections = {
+    'Contact Information': hasContact ? 80 : 10,
+    'Professional Summary': hasSummary ? 75 : 5,
+    'Skills': hasSkills ? 80 : 10,
+    'Work Experience': hasExperience ? 78 : 5,
+    'Education': hasEducation ? 85 : 10,
+    'Certifications': hasCerts ? 70 : 20,
+    'Projects': hasProjects ? 72 : 20,
+  };
+
+  const strengths = [];
+  const warnings = [];
+  const critical = [];
+
+  if (hasContact) strengths.push({ title: 'Contact Information Present', desc: 'Your CV includes contact details for recruiters to reach you.' });
+  if (hasExperience) strengths.push({ title: 'Work Experience Section Found', desc: 'Experience section is present — crucial for ATS parsing.' });
+  if (hasEducation) strengths.push({ title: 'Education Section Detected', desc: 'Education credentials are clearly listed.' });
+  if (hasNumbers) strengths.push({ title: 'Quantified Achievements', desc: 'You use numbers to demonstrate impact, which ATS and recruiters love.' });
+  if (hasSkills) strengths.push({ title: 'Skills Section Present', desc: 'Dedicated skills section helps ATS match keywords efficiently.' });
+
+  if (!hasSummary) warnings.push({ title: 'Missing Professional Summary', desc: 'A 2-3 sentence summary significantly boosts ATS scores and recruiter engagement.' });
+  if (bulletCount < 5) warnings.push({ title: 'Low Use of Bullet Points', desc: 'Use bullet points to improve ATS parsability and readability.' });
+  if (!hasProjects) warnings.push({ title: 'No Projects Section', desc: 'Adding a projects section showcases practical skills and expands keyword coverage.' });
+  if (wordCount < 300) warnings.push({ title: 'CV Appears Short', desc: 'Your CV may lack detail. Aim for 400-800 words for most roles.' });
+
+  if (!hasContact) critical.push({ title: 'No Contact Information', desc: 'Recruiters cannot reach you. Add email, phone, and LinkedIn immediately.' });
+  if (!hasExperience) critical.push({ title: 'No Work Experience Section', desc: 'This is the most critical section for ATS scoring. Add it immediately.' });
+
+  const techKeywords = ['python','javascript','react','aws','docker','sql','git','machine learning','api','agile'];
+  const found = techKeywords.filter(k => t.includes(k));
+  const missing = techKeywords.filter(k => !t.includes(k)).slice(0, 5);
+
+  return {
+    score: Math.min(score, 100),
+    readiness: score >= 80 ? 'Excellent' : score >= 60 ? 'Good' : score >= 40 ? 'Average' : 'Poor',
+    scoreTitle: score >= 80 ? 'Strong ATS Profile' : score >= 60 ? 'Solid Foundation' : score >= 40 ? 'Needs Improvement' : 'Major Overhaul Needed',
+    scoreDesc: `Local heuristic analysis completed (no API key provided). Your CV scored ${score}/100 based on section detection and content quality checks. Add your Anthropic API key for a detailed AI-powered analysis.`,
+    sections,
+    strengths,
+    warnings,
+    critical,
+    recommendations: [
+      hasSummary ? 'Strengthen your summary with specific metrics and a clear value proposition.' : 'Add a 2-3 sentence professional summary at the top.',
+      hasNumbers ? 'Continue quantifying achievements — add more metrics where possible.' : 'Quantify your achievements with numbers, percentages, and dollar amounts.',
+      'Tailor your skills section to match the specific job description keywords.',
+      'Ensure your CV is saved as a standard .docx or text-based PDF (not image-based).',
+      'Use standard section headers (Experience, Education, Skills) for best ATS compatibility.',
+      'Keep formatting simple — avoid tables, columns, headers/footers that confuse ATS.',
+      'Add a LinkedIn URL and GitHub (for tech roles) to your contact section.',
+    ],
+    keywords: {
+      found,
+      missing,
+      suggested: ['leadership', 'collaboration', 'problem-solving', 'communication', 'results-driven']
+    }
+  };
+}
+
+/* ─────────────────────────────────────────
+   RENDER RESULTS
+───────────────────────────────────────── */
+function renderResults(r, rawCV) {
+  // Show/hide
+  document.getElementById('uploadSection') && (document.getElementById('uploadSection').style.display = 'none');
+  document.querySelector('.upload-section').style.display = 'none';
+  document.querySelector('.hero').style.display = 'none';
+  document.getElementById('resultsSection').style.display = 'block';
+
+  // ── Score ring ──
+  const circumference = 327;
+  const offset = circumference - (r.score / 100) * circumference;
+  const ring = document.getElementById('scoreRingFill');
+  ring.className = 'score-ring-fill stroke-' + readinessClass(r.readiness);
+  setTimeout(() => { ring.style.strokeDashoffset = offset; }, 100);
+
+  // ── Score number (animated) ──
+  animateNumber('scoreDisplay', 0, r.score, 1200);
+
+  // ── Score info ──
+  document.getElementById('scoreTitle').textContent = r.scoreTitle || 'ATS Score';
+  document.getElementById('scoreDesc').textContent = r.scoreDesc || '';
+
+  // ── Readiness badge ──
+  const badge = document.getElementById('readinessBadge');
+  badge.textContent = r.readiness;
+  badge.className = 'readiness-badge bg-' + readinessClass(r.readiness);
+
+  // ── Stats ──
+  const strengths = r.strengths || [];
+  const warnings = r.warnings || [];
+  const critical = r.critical || [];
+  const sections = r.sections || {};
+
+  setTimeout(() => animateNumber('statStrengths', 0, strengths.length, 600), 200);
+  setTimeout(() => animateNumber('statWarnings', 0, warnings.length, 600), 300);
+  setTimeout(() => animateNumber('statCritical', 0, critical.length, 600), 400);
+  setTimeout(() => animateNumber('statSections', 0, Object.keys(sections).length, 600), 500);
+
+  // ── Section bars ──
+  const barsEl = document.getElementById('sectionBars');
+  barsEl.innerHTML = '';
+  Object.entries(sections).forEach(([name, score], i) => {
+    const cls = score >= 80 ? 'excellent' : score >= 60 ? 'good' : score >= 40 ? 'average' : 'poor';
+    const el = document.createElement('div');
+    el.className = 'section-bar-item';
+    el.innerHTML = `
+      <div class="section-bar-header">
+        <span class="section-bar-name">${name}</span>
+        <span class="section-bar-score color-${cls}">${score}/100</span>
+      </div>
+      <div class="bar-track">
+        <div class="bar-fill bar-${cls}" style="width:0%" data-target="${score}%"></div>
+      </div>`;
+    barsEl.appendChild(el);
+    setTimeout(() => {
+      el.querySelector('.bar-fill').style.width = score + '%';
+    }, 200 + i * 80);
+  });
+
+  // ── Findings ──
+  renderFindings('strengthsList', strengths, 'strength', '✅');
+  renderFindings('warningsList', warnings, 'warning', '⚠️');
+  renderFindings('criticalList', critical, 'critical', '❌');
+
+  if (critical.length === 0) {
+    document.getElementById('criticalList').innerHTML =
+      '<div class="finding-item strength"><span class="finding-icon">🎉</span><div class="finding-content"><div class="finding-title">No Critical Issues Found</div><div class="finding-desc">Your CV passes all critical ATS checks.</div></div></div>';
+  }
+
+  // ── Recommendations ──
+  const recList = document.getElementById('recList');
+  recList.innerHTML = '';
+  (r.recommendations || []).forEach((rec, i) => {
+    const el = document.createElement('div');
+    el.className = 'rec-item';
+    el.innerHTML = `<div class="rec-number">${i + 1}</div><div>${rec}</div>`;
+    recList.appendChild(el);
+  });
+
+  // ── Keywords ──
+  const kwGroups = document.getElementById('keywordGroups');
+  kwGroups.innerHTML = '';
+  const kw = r.keywords || {};
+
+  const groups = [
+    { key: 'found', label: '✅ Found in your CV', cls: 'kw-found' },
+    { key: 'missing', label: '❌ Missing — Important Keywords', cls: 'kw-missing' },
+    { key: 'suggested', label: '💡 Suggested Additions', cls: 'kw-suggested' },
+  ];
+
+  groups.forEach(g => {
+    const arr = kw[g.key] || [];
+    if (!arr.length) return;
+    const div = document.createElement('div');
+    div.innerHTML = `<div class="keyword-group-title">${g.label}</div>
+      <div class="keyword-tags">${arr.map(k => `<span class="kw-tag ${g.cls}">${k}</span>`).join('')}</div>`;
+    kwGroups.appendChild(div);
+  });
+
+  // ── Raw text ──
+  document.getElementById('rawText').textContent = rawCV.trim().substring(0, 2000) + (rawCV.length > 2000 ? '\n\n[… truncated for display]' : '');
+}
+
+function renderFindings(elId, items, type, icon) {
+  const el = document.getElementById(elId);
+  el.innerHTML = '';
+  if (!items || items.length === 0) {
+    el.innerHTML = `<div class="finding-item" style="color:var(--text3);font-size:.85rem;">None found.</div>`;
+    return;
+  }
+  items.forEach(item => {
+    const div = document.createElement('div');
+    div.className = `finding-item ${type}`;
+    div.innerHTML = `
+      <span class="finding-icon">${icon}</span>
+      <div class="finding-content">
+        <div class="finding-title">${item.title || item}</div>
+        <div class="finding-desc">${item.desc || ''}</div>
+      </div>`;
+    el.appendChild(div);
+  });
+}
+
+/* ─────────────────────────────────────────
+   DOWNLOAD REPORT
+───────────────────────────────────────── */
+function downloadReport() {
+  if (!analysisResult) return;
+  const r = analysisResult;
+  const lines = [
+    '═══════════════════════════════════════════',
+    '           CV SCANNER — ATS REPORT',
+    '═══════════════════════════════════════════',
+    `Score: ${r.score}/100 — ${r.readiness}`,
+    `${r.scoreTitle}`,
+    '',
+    r.scoreDesc,
+    '',
+    '─── SECTION SCORES ─────────────────────',
+    ...Object.entries(r.sections || {}).map(([k,v]) => `  ${k}: ${v}/100`),
+    '',
+    '─── STRENGTHS ───────────────────────────',
+    ...(r.strengths || []).map(s => `  ✅ ${s.title}\n     ${s.desc}`),
+    '',
+    '─── AREAS FOR IMPROVEMENT ───────────────',
+    ...(r.warnings || []).map(w => `  ⚠️  ${w.title}\n     ${w.desc}`),
+    '',
+    '─── CRITICAL ISSUES ─────────────────────',
+    ...(r.critical || []).length ? (r.critical || []).map(c => `  ❌ ${c.title}\n     ${c.desc}`) : ['  None found — great!'],
+    '',
+    '─── RECOMMENDATIONS ─────────────────────',
+    ...(r.recommendations || []).map((rec, i) => `  ${i+1}. ${rec}`),
+    '',
+    '─── KEYWORDS FOUND ──────────────────────',
+    '  ' + (r.keywords?.found || []).join(', '),
+    '',
+    '─── MISSING KEYWORDS ────────────────────',
+    '  ' + (r.keywords?.missing || []).join(', '),
+    '',
+    '═══════════════════════════════════════════',
+    `Generated by CVScan on ${new Date().toLocaleDateString()}`,
+    '═══════════════════════════════════════════',
+  ];
+
+  const blob = new Blob([lines.join('\n')], { type: 'text/plain' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `CV_ATS_Report_${new Date().toISOString().slice(0,10)}.txt`;
+  a.click();
+}
+
+/* ─────────────────────────────────────────
+   UTILITIES
+───────────────────────────────────────── */
+function readinessClass(r) {
+  return { Excellent: 'excellent', Good: 'good', Average: 'average', Poor: 'poor' }[r] || 'average';
+}
+
+function animateNumber(elId, from, to, duration) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  const start = performance.now();
+  function update(now) {
+    const progress = Math.min((now - start) / duration, 1);
+    const ease = 1 - Math.pow(1 - progress, 3);
+    el.textContent = Math.round(from + (to - from) * ease);
+    if (progress < 1) requestAnimationFrame(update);
+  }
+  requestAnimationFrame(update);
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+function stepActive(n) {
+  const el = document.getElementById('step' + n);
+  if (el) el.classList.add('active');
+}
+
+function stepDone(n) {
+  const el = document.getElementById('step' + n);
+  if (el) { el.classList.remove('active'); el.classList.add('done'); }
+  return sleep(200);
+}
+
+function showLoading() {
+  document.querySelector('.upload-section').style.display = 'none';
+  document.querySelector('.hero').style.display = 'none';
+  document.getElementById('loadingSection').style.display = 'block';
+  document.getElementById('resultsSection').style.display = 'none';
+}
+
+function hideLoading() {
+  document.getElementById('loadingSection').style.display = 'none';
+}
+
+function showError(msg) {
+  const el = document.getElementById('errorBox');
+  el.textContent = msg;
+  el.style.display = msg ? 'block' : 'none';
+  if (msg) {
+    document.querySelector('.upload-section').style.display = 'block';
+    document.querySelector('.hero').style.display = 'block';
+    hideLoading();
+  }
+}
+
+function resetApp() {
+  document.querySelector('.upload-section').style.display = 'block';
+  document.querySelector('.hero').style.display = 'block';
+  document.getElementById('resultsSection').style.display = 'none';
+  document.getElementById('loadingSection').style.display = 'none';
+  fileInput.value = '';
+  cvText = '';
+  analysisResult = null;
+  // Reset loading steps
+  for (let i = 1; i <= 5; i++) {
+    const el = document.getElementById('step' + i);
+    if (el) { el.classList.remove('active', 'done'); }
+  }
+  showError('');
+}
+</script>
+</body>
+</html>
